@@ -1,3 +1,9 @@
+<!-- course: COMP 4710 Senior Design, Spring 2024 -->
+<!-- author: Cady Pridgeon -->
+<!-- credits:
+    https://observablehq.com/@tezzutezzu/world-history-timeline
+    https://observablehq.com/@d3/zoomable-bar-chart -->
+
 <!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -122,7 +128,6 @@
                 var innerHeight = height - margins.top - margins.bottom;
 
                 var chronology = document.createElement("div");
-
                 var svg = d3.select(chronology)
                     .append("svg")
                     .attr("width", width)
@@ -157,6 +162,21 @@
 
                 var tooltip = d3.select(".tooltip");
 
+                // create a line to help with comparing the bars to the axes
+                var line = svg.append("line")
+                    .attr("class", "line")
+                    .style("stroke", "black")
+                    .style("stroke-width", 1)
+                    .style("opacity", .2)
+                svg.on("mousemove", function (event) {
+                    var mouseX = d3.pointer(event)[0];
+                    line
+                        .attr("x1", mouseX)
+                        .attr("y1", 0)
+                        .attr("x2", mouseX)
+                        .attr("y2", height);
+                });
+
                 // add a bar for each author and make it span their birth to death year
                 svg.selectAll(".author")
                     .data(data)
@@ -182,23 +202,37 @@
                             return "#000000";
                         }
                     })
+                    .each(function (d) {
+                        if (d.Page_Link) {
+                            d3.select(this).style("cursor", "pointer");
+                        }
+                    })
+                    // open author page on click
+                    .on("click", function (event, d) {
+                        if (d.Page_Link) {
+                            window.open(d.Page_Link, "_blank");
+                        }
+                    })
                     // add a tooltip with author info on hover
                     .on("mouseover", function (event, d) {
                         tooltip.transition()
                             .duration(200)
                             .style("opacity", 1);
                         tooltip.html(
+                            `<img src="./images/${d.Image_Name}" alt="${d.Author_First_Name_Last_Name}" width="200"}<br><br><br>` +
                             `<strong>${d.Author_Last_Name_First_Name_Author_Dates}</strong><br>` +
                             `Years Lived: ${d.Lifespan}<br>` +
                             `County: ${d.County}`
                         )
                             .style("left", (event.pageX) + "px")
                             .style("top", (event.pageY - 28) + "px");
+                        d3.select(this).attr("opacity", 0.7);
                     })
                     .on("mouseout", function (d) {
                         tooltip.transition()
                             .duration(500)
                             .style("opacity", 0);
+                        d3.select(this).attr("opacity", 1);
                     });
 
                 // create new viz when a sort option is selected
