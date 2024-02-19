@@ -15,7 +15,7 @@
             overflow: hidden;
         }
 
-        #chronology-container {
+        #chronology {
             height: 83vh;
             overflow-y: hidden;
             overflow-x: hidden;
@@ -37,10 +37,9 @@
         }
     </style>
 
+    <div id="dropdown"></div>
     <svg id="top-axis"></svg>
-    <div id="chronology-container">
-        <svg id="chronology"></svg>
-    </div>
+    <div id="chronology"></div>
     <svg id="bottom-axis"></svg>
     <div class="tooltip" style="opacity: 0;"></div>
 
@@ -54,118 +53,180 @@
                 return !isNaN(d.Birth_Date.getTime()) && !isNaN(d.Death_Date.getTime());
             });
 
-            // use tableu 10 color scheme
-            var colors = {
-                "1750-1800": "#5778a4",
-                "1800-1850": "#e49444",
-                "1850-1900": "#85b6b2",
-                "1900-1950": "#6a9f58",
-                "1950-2000": "#f1a2a9"
-            };
+            // create sort dropdown
+            // credit: https://dev.to/learningmonk/sortable-bar-chart-with-d3-js-k3b
+            var dropdown = document.getElementById("dropdown");
+            var sort = ["Alphabetically", "Ascending Birth Year", "Descending Birth Year", "Ascending Death Year", "Descending Death Year", "Ascending Lifespan", "Descending Lifespan"];
+            document.addEventListener("DOMContentLoaded", createChronology());
+            d3.select(dropdown)
+                .append("span")
+                .append("select")
+                .attr("id", "selection")
+                .selectAll("option")
+                .data(sort)
+                .enter()
+                .append("option")
+                .attr("value", d => d)
+                .text(d => d);
 
-            // create viz size
-            var margins = { top: 64, left: 64, bottom: 64, right: 64 }
-            var width = window.innerWidth;
-            var height = window.innerHeight;
-            var innerWidth = width - margins.left - margins.right;
-            var innerHeight = height - margins.top - margins.bottom;
+            // sort data based on dropdown selection
+            d3.select("#selection").on("change", function () {
+                var selected = d3.select(this).node().value;
+                if (selected == "Alphabetically") {
+                    data.sort((a, b) => {
+                        return d3.ascending(a.Author_Last_Name_First_Name_Author_Dates, b.Author_Last_Name_First_Name_Author_Dates)
+                    })
+                } else if (selected == "Ascending Birth Year") {
+                    data.sort((a, b) => {
+                        return d3.ascending(a.Birth_Date, b.Birth_Date)
+                    })
+                } else if (selected == "Descending Birth Year") {
+                    data.sort((a, b) => {
+                        return d3.descending(a.Birth_Date, b.Birth_Date)
+                    })
+                } else if (selected == "Ascending Death Year") {
+                    data.sort((a, b) => {
+                        return d3.ascending(a.Death_Date, b.Death_Date)
+                    })
+                } else if (selected == "Descending Death Year") {
+                    data.sort((a, b) => {
+                        return d3.descending(a.Death_Date, b.Death_Date)
+                    })
+                } else if (selected == "Ascending Lifespan") {
+                    data.sort((a, b) => {
+                        return d3.ascending(a.Lifespan, b.Lifespan)
+                    })
+                } else if (selected == "Descending Lifespan") {
+                    data.sort((a, b) => {
+                        return d3.descending(a.Lifespan, b.Lifespan)
+                    })
+                }
+                createChronology();
+            })
 
-            var svg = d3.select("#chronology")
-                .attr("width", width)
-                .attr("height", innerHeight)
-                .call(zoom);
+            function createChronology() {
+                // use tableu 10 color scheme
+                var colors = {
+                    "1750-1800": "#5778a4",
+                    "1800-1850": "#e49444",
+                    "1850-1900": "#85b6b2",
+                    "1900-1950": "#6a9f58",
+                    "1950-2000": "#f1a2a9"
+                };
 
-            // create top and bottom year axes
-            var x = d3.scaleTime()
-                .domain([d3.min(data, function (d) { return d.Birth_Date; }), d3.max(data, function (d) { return d.Death_Date; })])
-                .range([0, innerWidth]);
+                // create base viz
+                var margins = { top: 64, left: 64, bottom: 64, right: 64 }
+                var width = window.innerWidth;
+                var height = window.innerHeight;
+                var innerWidth = width - margins.left - margins.right;
+                var innerHeight = height - margins.top - margins.bottom;
 
-            var y = d3.scaleBand()
-                .domain(data.map(function (d) { return d.Author_Last_Name_First_Name_Author_Dates; }))
-                .range([0, innerHeight])
-                .padding(0.1);
+                var chronology = document.createElement("div");
 
-            var topAxis = d3.select("#top-axis")
-                .attr("width", width)
-                .attr("height", margins.top);
+                var svg = d3.select(chronology)
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", innerHeight)
+                    .call(zoom);
 
-            topAxis.append("g")
-                .attr("transform", `translate(${margins.top}, ${margins.left})`)
-                .call(d3.axisTop(x));
+                // create top and bottom year axes
+                var x = d3.scaleTime()
+                    .domain([d3.min(data, function (d) { return d.Birth_Date; }), d3.max(data, function (d) { return d.Death_Date; })])
+                    .range([0, innerWidth]);
 
-            var bottomAxis = d3.select("#bottom-axis")
-                .attr("width", width)
-                .attr("height", margins.bottom);
+                var y = d3.scaleBand()
+                    .domain(data.map(function (d) { return d.Author_Last_Name_First_Name_Author_Dates; }))
+                    .range([0, innerHeight])
+                    .padding(0.1);
 
-            bottomAxis.append("g")
-                .attr("transform", `translate(${margins.left}, 0)`)
-                .call(d3.axisBottom(x));
+                var topAxis = d3.select("#top-axis")
+                    .attr("width", width)
+                    .attr("height", margins.top);
 
-            var tooltip = d3.select(".tooltip");
+                topAxis.append("g")
+                    .attr("transform", `translate(${margins.top}, ${margins.left})`)
+                    .call(d3.axisTop(x));
 
-            // add a bar for each author and make it span their birth to death year
-            svg.selectAll(".author")
-                .data(data)
-                .enter().append("rect")
-                .attr("class", "author")
-                .attr("x", function (d) { return x(d.Birth_Date) + margins.left; })
-                .attr("y", function (d, i) { return y(d.Author_Last_Name_First_Name_Author_Dates); })
-                .attr("width", function (d) { return x(d.Death_Date) - x(d.Birth_Date); })
-                .attr("height", y.bandwidth())
-                .attr("fill", function (d) {
-                    var birth = d.Birth_Date.getFullYear();
-                    if (birth >= 1750 && birth < 1800) {
-                        return colors["1750-1800"];
-                    } else if (birth >= 1800 && birth < 1850) {
-                        return colors["1800-1850"];
-                    } else if (birth >= 1850 && birth < 1900) {
-                        return colors["1850-1900"];
-                    } else if (birth >= 1900 && birth < 1950) {
-                        return colors["1900-1950"];
-                    } else if (birth >= 1950 && birth <= 2000) {
-                        return colors["1950-2000"];
-                    } else {
-                        return "#000000";
+                var bottomAxis = d3.select("#bottom-axis")
+                    .attr("width", width)
+                    .attr("height", margins.bottom);
+
+                bottomAxis.append("g")
+                    .attr("transform", `translate(${margins.left}, 0)`)
+                    .call(d3.axisBottom(x));
+
+                var tooltip = d3.select(".tooltip");
+
+                // add a bar for each author and make it span their birth to death year
+                svg.selectAll(".author")
+                    .data(data)
+                    .enter().append("rect")
+                    .attr("class", "author")
+                    .attr("x", function (d) { return x(d.Birth_Date) + margins.left; })
+                    .attr("y", function (d, i) { return y(d.Author_Last_Name_First_Name_Author_Dates); })
+                    .attr("width", function (d) { return x(d.Death_Date) - x(d.Birth_Date); })
+                    .attr("height", y.bandwidth())
+                    .attr("fill", function (d) {
+                        var birth = d.Birth_Date.getFullYear();
+                        if (birth >= 1750 && birth < 1800) {
+                            return colors["1750-1800"];
+                        } else if (birth >= 1800 && birth < 1850) {
+                            return colors["1800-1850"];
+                        } else if (birth >= 1850 && birth < 1900) {
+                            return colors["1850-1900"];
+                        } else if (birth >= 1900 && birth < 1950) {
+                            return colors["1900-1950"];
+                        } else if (birth >= 1950 && birth <= 2000) {
+                            return colors["1950-2000"];
+                        } else {
+                            return "#000000";
+                        }
+                    })
+                    // add a tooltip with author info on hover
+                    .on("mouseover", function (event, d) {
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 1);
+                        tooltip.html(
+                            `<strong>${d.Author_Last_Name_First_Name_Author_Dates}</strong><br>` +
+                            `Years Lived: ${d.Lifespan}<br>` +
+                            `County: ${d.County}`
+                        )
+                            .style("left", (event.pageX) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function (d) {
+                        tooltip.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    });
+
+                // create new viz when a sort option is selected
+                var newChronology = document.getElementById("chronology");
+                while (newChronology.firstChild) {
+                    newChronology.firstChild.remove();
+                }
+                newChronology.appendChild(chronology);
+
+                // make the viz zoomable
+                function zoom(svg) {
+                    var extent = [[margins.left, margins.right], [innerWidth - margins.left, innerHeight - margins.top]];
+                    svg.call(d3.zoom()
+                        .scaleExtent([1, 50])
+                        .translateExtent(extent)
+                        .extent(extent)
+                        .on("zoom", zoomed));
+
+                    function zoomed(event) {
+                        y.range([margins.top, innerHeight - margins.bottom].map(d => event.transform.applyY(d)));
+                        svg.selectAll(".author")
+                            .attr("y", function (d, i) { return y(d.Author_Last_Name_First_Name_Author_Dates); })
+                            .attr("height", y.bandwidth());
+                        svg.select("#top-axis").call(d3.axisTop(y));
+                        svg.select("#bottom-axis").call(d3.axisBottom(y));
                     }
-                })
-                // add a tooltip with author info on hover
-                .on("mouseover", function (event, d) {
-                    tooltip.transition()
-                        .duration(200)
-                        .style("opacity", 1);
-                    tooltip.html(
-                        `<strong>${d.Author_Last_Name_First_Name_Author_Dates}</strong><br>` +
-                        `Years Lived: ${d.Lifespan}<br>` +
-                        `County: ${d.County}`
-                    )
-                        .style("left", (event.pageX) + "px")
-                        .style("top", (event.pageY - 28) + "px");
-                })
-                .on("mouseout", function (d) {
-                    tooltip.transition()
-                        .duration(500)
-                        .style("opacity", 0);
-                });
-
-            // make the viz zoomable
-            function zoom(svg) {
-                const extent = [[margins.left, margins.right], [innerWidth - margins.left, innerHeight - margins.top]];
-                svg.call(d3.zoom()
-                    .scaleExtent([1, 50])
-                    .translateExtent(extent)
-                    .extent(extent)
-                    .on("zoom", zoomed));
-
-                function zoomed(event) {
-                    y.range([margins.top, innerHeight - margins.bottom].map(d => event.transform.applyY(d)));
-                    svg.selectAll(".author")
-                        .attr("y", function (d, i) { return y(d.Author_Last_Name_First_Name_Author_Dates); })
-                        .attr("height", y.bandwidth());
-                    svg.select("#top-axis").call(d3.axisTop(y));
-                    svg.select("#bottom-axis").call(d3.axisBottom(y));
                 }
             }
-
         }).catch(function (error) {
             console.error("error loading csv: " + error);
         });
