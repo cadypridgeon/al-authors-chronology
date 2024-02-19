@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<body>
+
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #chronology-container {
+            height: 83vh;
+            overflow-y: hidden;
+            overflow-x: hidden;
+        }
+
+        #bottom-axis {
+            padding-top: 4px;
+        }
+
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 8px;
+            font: 12px sans-serif;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+            pointer-events: none;
+        }
+    </style>
+
+    <svg id="top-axis"></svg>
+    <div id="chronology-container">
+        <svg id="chronology"></svg>
+    </div>
+    <svg id="bottom-axis"></svg>
+    <div class="tooltip" style="opacity: 0;"></div>
+
+    <script>
+        d3.csv("authors.csv").then(function (data) {
+            data = data.filter(function (d) {
+                d.Birth_Date = new Date(d.Birth_Date);
+                d.Death_Date = new Date(d.Death_Date);
+                return !isNaN(d.Birth_Date.getTime()) && !isNaN(d.Death_Date.getTime());
+            });
+
+            // using tableu 10 color scheme
+            var colorCategories = {
+                "1750-1800": "#5778a4",
+                "1800-1850": "#e49444",
+                "1850-1900": "#85b6b2",
+                "1900-1950": "#6a9f58",
+                "1950-2000": "#f1a2a9"
+            };
+
+            var margins = { top: 64, left: 64, bottom: 64, right: 64 }
+            var width = window.innerWidth;
+            var height = window.innerHeight;
+            var innerWidth = width - margins.left - margins.right;
+            var innerHeight = height - margins.top - margins.bottom;
+
+            var svg = d3.select("#chronology")
+                .attr("width", width)
+                .attr("height", innerHeight)
+                .call(zoom);
+
+            var x = d3.scaleTime()
+                .domain([d3.min(data, function (d) { return d.Birth_Date; }), d3.max(data, function (d) { return d.Death_Date; })])
+                .range([0, innerWidth]);
+
+            var y = d3.scaleBand()
+                .domain(data.map(function (d) { return d.Author_Last_Name_First_Name_Author_Dates; }))
+                .range([0, innerHeight])
+                .padding(0.1);
+
+            var topAxis = d3.select("#top-axis")
+                .attr("width", width)
+                .attr("height", margins.top);
+
+            topAxis.append("g")
+                .attr("transform", `translate(${margins.top}, ${margins.left})`)
+                .call(d3.axisTop(x));
+
+            var bottomAxis = d3.select("#bottom-axis")
+                .attr("width", width)
+                .attr("height", margins.bottom);
+
+            bottomAxis.append("g")
+                .attr("transform", `translate(${margins.left}, 0)`)
+                .call(d3.axisBottom(x));
+
+            var tooltip = d3.select(".tooltip");
+
+            svg.selectAll(".author-timeline")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "author-timeline")
+                .attr("x", function (d) { return x(d.Birth_Date) + margins.left; })
+                .attr("y", function (d, i) { return y(d.Author_Last_Name_First_Name_Author_Dates); })
+                .attr("width", function (d) { return x(d.Death_Date) - x(d.Birth_Date); })
+                .attr("height", y.bandwidth())
+                .attr("fill", function (d) {
+                    var birth = d.Birth_Date.getFullYear();
+                    if (birth >= 1750 && birth < 1800) {
+                        return colorCategories["1750-1800"];
+                    } else if (birth >= 1800 && birth < 1850) {
+                        return colorCategories["1800-1850"];
+                    } else if (birth >= 1850 && birth < 1900) {
+                        return colorCategories["1850-1900"];
+                    } else if (birth >= 1900 && birth < 1950) {
+                        return colorCategories["1900-1950"];
+                    } else if (birth >= 1950 && birth <= 2000) {
+                        return colorCategories["1950-2000"];
+                    } else {
+                        return "gray";
+                    }
+                })
+                .on("mouseover", function (event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 1);
+                    tooltip.html(
+                        `<strong>${d.Author_Last_Name_First_Name_Author_Dates}</strong><br>` +
+                        `Years Lived: ${d.Lifespan}<br>` +
+                        `County: ${d.County}`
+                    )
+                        .style("left", (event.pageX) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function (d) {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+            function zoom(svg) {
+                const extent = [[margins.left, margins.right], [innerWidth - margins.left, innerHeight - margins.top]];
+
+                svg.call(d3.zoom()
+                    .scaleExtent([1, 50])
+                    .translateExtent(extent)
+                    .extent(extent)
+                    .on("zoom", zoomed));
+
+                function zoomed(event) {
+                    y.range([margins.top, innerHeight - margins.bottom].map(d => event.transform.applyY(d)));
+                    svg.selectAll(".author-timeline")
+                        .attr("y", function (d, i) { return y(d.Author_Last_Name_First_Name_Author_Dates); })
+                        .attr("height", y.bandwidth());
+                    svg.select("#top-axis").call(d3.axisTop(y));
+                    svg.select("#bottom-axis").call(d3.axisBottom(y));
+                }
+            }
+
+        }).catch(function (error) {
+            console.error("error loading csv: " + error);
+        });
+    </script>
+
+</body>
+
+</html>
